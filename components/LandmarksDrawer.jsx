@@ -1,7 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { X, Trash2, Compass, Sparkles, MapPin, Building2, Landmark, Trees, ShoppingBag, Plane } from "lucide-react";
+import {
+  X,
+  Trash2,
+  Compass,
+  Sparkles,
+  MapPin,
+  Building2,
+  Landmark,
+  Trees,
+  ShoppingBag,
+  Plane,
+  Coins,
+} from "lucide-react";
+import { REAL_ESTATE_SITES } from "./RealEstateSites";
 
 export const BANGALORE_LANDMARKS = [
   {
@@ -168,6 +181,7 @@ export default function LandmarksDrawer({
   onFlyToLandmark,
   bookmarks,
   onDeleteBookmark,
+  onSelectRealEstateSite,
 }) {
   const [activeCategory, setActiveCategory] = useState("all");
 
@@ -185,7 +199,7 @@ export default function LandmarksDrawer({
         <div className="drawer-header">
           <h2>
             <Compass size={20} style={{ color: "var(--accent-gold)" }} />
-            Bengaluru Landmarks
+            Bengaluru Explorer & Land Hubs
           </h2>
           <button className="close-btn" onClick={onClose}>
             <X size={18} />
@@ -202,11 +216,11 @@ export default function LandmarksDrawer({
               All Hubs
             </button>
             <button
-              className={`category-tab-btn ${activeCategory === "heritage" ? "active" : ""}`}
-              onClick={() => setActiveCategory("heritage")}
+              className={`category-tab-btn ${activeCategory === "real-estate" ? "active" : ""}`}
+              onClick={() => setActiveCategory("real-estate")}
             >
-              <Landmark size={12} style={{ display: "inline", marginRight: 4 }} />
-              Heritage
+              <Coins size={12} style={{ display: "inline", marginRight: 4, color: "var(--accent-gold)" }} />
+              Land Parcels
             </button>
             <button
               className={`category-tab-btn ${activeCategory === "tech" ? "active" : ""}`}
@@ -214,6 +228,13 @@ export default function LandmarksDrawer({
             >
               <Building2 size={12} style={{ display: "inline", marginRight: 4 }} />
               Tech Parks
+            </button>
+            <button
+              className={`category-tab-btn ${activeCategory === "heritage" ? "active" : ""}`}
+              onClick={() => setActiveCategory("heritage")}
+            >
+              <Landmark size={12} style={{ display: "inline", marginRight: 4 }} />
+              Heritage
             </button>
             <button
               className={`category-tab-btn ${activeCategory === "nature" ? "active" : ""}`}
@@ -229,14 +250,64 @@ export default function LandmarksDrawer({
               <ShoppingBag size={12} style={{ display: "inline", marginRight: 4 }} />
               Lifestyle
             </button>
-            <button
-              className={`category-tab-btn ${activeCategory === "transit" ? "active" : ""}`}
-              onClick={() => setActiveCategory("transit")}
-            >
-              <Plane size={12} style={{ display: "inline", marginRight: 4 }} />
-              Transit
-            </button>
           </div>
+
+          {/* Prime Real Estate Development Sites Section */}
+          {(activeCategory === "all" || activeCategory === "real-estate") && (
+            <div>
+              <div className="drawer-section-title">
+                <Coins size={14} style={{ display: "inline", marginRight: 4, color: "var(--accent-gold)" }} />
+                Prime Development Land Parcels ({REAL_ESTATE_SITES.length})
+              </div>
+              {REAL_ESTATE_SITES.map((site) => (
+                <div
+                  key={site.id}
+                  className="landmark-card"
+                  style={{ borderLeft: "3px solid var(--accent-gold)" }}
+                  onClick={() => {
+                    if (onSelectRealEstateSite) {
+                      onSelectRealEstateSite(site);
+                    } else {
+                      onFlyToLandmark({
+                        latitude: site.center.lat,
+                        longitude: site.center.lng,
+                        height: site.camera.height,
+                        pitch: site.camera.pitch,
+                        heading: site.camera.heading,
+                        name: site.name,
+                        acres: site.acres,
+                        zoning: site.zoning,
+                        authority: site.authority,
+                        description: site.description,
+                      });
+                    }
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 52,
+                      height: 52,
+                      borderRadius: 10,
+                      background: "rgba(245, 158, 11, 0.15)",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      color: "var(--accent-gold)",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Building2 size={20} />
+                    <span style={{ fontSize: 9, fontWeight: 700, marginTop: 2 }}>{site.acres} AC</span>
+                  </div>
+                  <div className="landmark-info">
+                    <div className="landmark-name">{site.name}</div>
+                    <div className="landmark-loc">{site.locality} • {site.authority}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* User Saved Bookmarks */}
           {bookmarks && bookmarks.length > 0 && (
@@ -294,25 +365,27 @@ export default function LandmarksDrawer({
           )}
 
           {/* Bengaluru Curated Hubs */}
-          <div>
-            <div className="drawer-section-title">
-              <Sparkles size={14} style={{ display: "inline", marginRight: 4, color: "var(--accent-gold)" }} />
-              Iconic Bengaluru Destinations ({filteredLandmarks.length})
-            </div>
-            {filteredLandmarks.map((item) => (
-              <div
-                key={item.id}
-                className="landmark-card"
-                onClick={() => onFlyToLandmark(item)}
-              >
-                <img src={item.thumb} alt={item.name} className="landmark-thumb" />
-                <div className="landmark-info">
-                  <div className="landmark-name">{item.name}</div>
-                  <div className="landmark-loc">{item.location}</div>
-                </div>
+          {activeCategory !== "real-estate" && (
+            <div>
+              <div className="drawer-section-title">
+                <Sparkles size={14} style={{ display: "inline", marginRight: 4, color: "var(--accent-gold)" }} />
+                Iconic Bengaluru Destinations ({filteredLandmarks.length})
               </div>
-            ))}
-          </div>
+              {filteredLandmarks.map((item) => (
+                <div
+                  key={item.id}
+                  className="landmark-card"
+                  onClick={() => onFlyToLandmark(item)}
+                >
+                  <img src={item.thumb} alt={item.name} className="landmark-thumb" />
+                  <div className="landmark-info">
+                    <div className="landmark-name">{item.name}</div>
+                    <div className="landmark-loc">{item.location}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
     </>

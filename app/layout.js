@@ -1,8 +1,8 @@
 import "./globals.css";
 
 export const metadata = {
-  title: "Namma Bengaluru 3D Explorer | Silicon Valley of India",
-  description: "Interactive 3D city explorer exclusively for Bengaluru (Bangalore), India. Explore Vidhana Soudha, UB City, Electronic City, Lalbagh, and iconic tech hubs in 3D photorealistic perspective.",
+  title: "Namma Bengaluru 3D | Real Estate & Urban Development Platform",
+  description: "Premium 3D real estate visualization, masterplan configurator, and urban planning platform for Bengaluru. Place towers, villas, and custom 3D models, simulate solar shadows, inspect cadastral parcel boundaries, and compare existing vs proposed developments.",
 };
 
 export default function RootLayout({ children }) {
