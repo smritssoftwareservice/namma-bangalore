@@ -35,6 +35,7 @@ import {
   generateContoursGeoJSON,
   generateFilledContourBands,
   getElevationColor,
+  BENGALURU_BOUNDS,
 } from '@/lib/gis/dem-data';
 import { generateBengaluruTIN } from '@/lib/gis/tin-service';
 import { BENGALURU_LAKES, RAJAKALUVE_SEGMENTS, WATERSHED_BOUNDARIES } from '@/lib/gis/hydrology-data';
@@ -163,6 +164,7 @@ export default function CesiumViewer({
     buildingRoofs: any[];
     elevatedFlyovers: any[];
     structuralPiers: any[];
+    filledContourLayer: any;
   }>({
     lakes: [],
     rajakaluves: [],
@@ -184,6 +186,7 @@ export default function CesiumViewer({
     buildingRoofs: [],
     elevatedFlyovers: [],
     structuralPiers: [],
+    filledContourLayer: null,
   });
 
   const radarLayerRef = useRef<any>(null);
@@ -955,7 +958,7 @@ export default function CesiumViewer({
     }
   }, [isReady, layers.lakes, layers.rajakaluves, layers.watersheds, hydrologySettings]);
 
-  // Contours & Filled Hypsometric Bands
+  // Contours & Filled Hypsometric Relief (Smooth Organic Terrain Form - NO SQUARES)
   useEffect(() => {
     if (!isReady || !viewerRef.current) return;
     const Cesium = (window as any).Cesium;
@@ -967,50 +970,100 @@ export default function CesiumViewer({
     tracking.contours = [];
     tracking.filledContourBands = [];
 
+    if (tracking.filledContourLayer) {
+      viewer.imageryLayers.remove(tracking.filledContourLayer);
+      tracking.filledContourLayer = null;
+    }
+
+    // 1. Filled Hypsometric Relief (Continuous bilinear raster texture, zero blocky squares)
     if (layers.filledContours && contourSettings.filledContours) {
       const palette = contourSettings.colorPalette || 'green-yellow-orange';
-      const bands = generateFilledContourBands(undefined, 15, palette);
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        const imgData = ctx.createImageData(canvas.width, canvas.height);
+        const data = imgData.data;
+        const b = BENGALURU_BOUNDS;
+        const latSpan = b.maxLat - b.minLat;
+        const lngSpan = b.maxLng - b.minLng;
 
-      for (const band of bands) {
-        for (const cell of band.cells) {
-          const rect = Cesium.Rectangle.fromDegrees(cell[0], cell[1], cell[2], cell[3]);
-          const ent = viewer.entities.add({
-            rectangle: {
-              coordinates: rect,
-              material: Cesium.Color.fromCssColorString(band.color).withAlpha(
-                contourSettings.opacity * 0.7
-              ),
-              heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
-            },
-          });
-          tracking.filledContourBands.push(ent);
+        for (let py = 0; py < canvas.height; py++) {
+          const lat = b.maxLat - (py / canvas.height) * latSpan;
+          for (let px = 0; px < canvas.width; px++) {
+            const lng = b.minLng + (px / canvas.width) * lngSpan;
+            const elev = getElevationAt(lat, lng);
+            const hex = getElevationColor(elev, palette);
+            const r = parseInt(hex.slice(1, 3), 16);
+            const g = parseInt(hex.slice(3, 5), 16);
+            const bCol = parseInt(hex.slice(5, 7), 16);
+
+            const idx = (py * canvas.width + px) * 4;
+            data[idx] = r;
+            data[idx + 1] = g;
+            data[idx + 2] = bCol;
+            data[idx + 3] = Math.round(contourSettings.opacity * 190);
+          }
         }
+        ctx.putImageData(imgData, 0, 0);
+
+        const provider = new Cesium.SingleTileImageryProvider({
+          url: canvas.toDataURL(),
+          rectangle: Cesium.Rectangle.fromDegrees(b.minLng, b.minLat, b.maxLng, b.maxLat),
+        });
+        const lyr = viewer.imageryLayers.addImageryProvider(provider);
+        lyr.alpha = contourSettings.opacity;
+        tracking.filledContourLayer = lyr;
       }
     }
 
+    // 2. Continuous, Chaikin-Smoothed Contour Isolines (Every 5m clearly visible)
     if (layers.contourLines && contourSettings.enabled) {
       const geojson = generateContoursGeoJSON(undefined, contourSettings.interval);
       for (const f of geojson.features) {
+        if (!f.geometry?.coordinates || f.geometry.coordinates.length < 2) continue;
         const positions = Cesium.Cartesian3.fromDegreesArray(
           f.geometry.coordinates.flatMap(([lng, lat]: any) => [lng, lat])
         );
 
         const isMajor = f.properties.isMajor;
-        const color = Cesium.Color.fromCssColorString(
-          f.properties.strokeColor ||
-            (isMajor ? contourSettings.majorColor : contourSettings.minorColor)
-        ).withAlpha(contourSettings.opacity);
+        const strokeHex = isMajor
+          ? contourSettings.majorColor || '#0f172a' // Solid dark charcoal
+          : contourSettings.minorColor || '#059669'; // Crisp emerald
+        const color = Cesium.Color.fromCssColorString(strokeHex).withAlpha(contourSettings.opacity);
 
         const ent = viewer.entities.add({
           name: `Contour ${f.properties.label}`,
           polyline: {
             positions,
-            width: isMajor ? contourSettings.majorWidth : contourSettings.minorWidth,
+            width: isMajor ? contourSettings.majorWidth || 2.6 : contourSettings.minorWidth || 1.3,
             material: color,
             clampToGround: true,
           },
         });
         tracking.contours.push(ent);
+
+        // Major index elevation callout badge (every 25m)
+        if (isMajor && contourSettings.showLabels && f.properties.midpoint) {
+          const mid = f.properties.midpoint;
+          const lbl = viewer.entities.add({
+            position: Cesium.Cartesian3.fromDegrees(mid[0], mid[1]),
+            label: {
+              text: `${f.properties.elevation}m`,
+              font: 'bold 11px sans-serif',
+              fillColor: Cesium.Color.WHITE,
+              outlineColor: Cesium.Color.fromCssColorString('#022c22'),
+              outlineWidth: 3,
+              style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+              heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+              verticalOrigin: Cesium.VerticalOrigin.CENTER,
+              horizontalOrigin: Cesium.HorizontalOrigin.CENTER,
+              distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 45000),
+            },
+          });
+          tracking.contours.push(lbl);
+        }
       }
     }
   }, [
@@ -1022,7 +1075,68 @@ export default function CesiumViewer({
     contourSettings.interval,
     contourSettings.colorPalette,
     contourSettings.opacity,
+    contourSettings.majorColor,
+    contourSettings.minorColor,
+    contourSettings.majorWidth,
+    contourSettings.minorWidth,
+    contourSettings.showLabels,
   ]);
+
+  // 3D Flood Risk & Natural Basin Inundation Layers
+  useEffect(() => {
+    if (!isReady || !viewerRef.current) return;
+    const Cesium = (window as any).Cesium;
+    const viewer = viewerRef.current;
+    const tracking = layerEntitiesRef.current;
+
+    for (const ent of tracking.floodZones) viewer.entities.remove(ent);
+    tracking.floodZones = [];
+
+    if (layers.floodRiskZones || floodSettings.floodRiskZones) {
+      for (const zone of BENGALURU_FLOOD_ZONES) {
+        const positions = Cesium.Cartesian3.fromDegreesArray(
+          zone.coordinates.flatMap(([lat, lng]) => [lng, lat])
+        );
+
+        const isCritical = zone.riskLevel === 'Critical';
+        const waterColor = isCritical
+          ? Cesium.Color.fromCssColorString('#0284c7').withAlpha(0.68)
+          : Cesium.Color.fromCssColorString('#0ea5e9').withAlpha(0.55);
+
+        const waterEnt = viewer.entities.add({
+          name: zone.name,
+          polygon: {
+            hierarchy: positions,
+            material: waterColor,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            outline: true,
+            outlineColor: isCritical
+              ? Cesium.Color.fromCssColorString('#ef4444')
+              : Cesium.Color.fromCssColorString('#38bdf8'),
+            outlineWidth: 2.5,
+          },
+        });
+        tracking.floodZones.push(waterEnt);
+
+        const center = zone.coordinates[0];
+        const badgeEnt = viewer.entities.add({
+          position: Cesium.Cartesian3.fromDegrees(center[1], center[0]),
+          label: {
+            text: `⚠️ ${zone.name}\nElev: ${zone.avgElevationMeters}m | Risk: ${zone.riskScore}/100`,
+            font: 'bold 11px sans-serif',
+            fillColor: isCritical ? Cesium.Color.fromCssColorString('#fca5a5') : Cesium.Color.WHITE,
+            outlineColor: Cesium.Color.BLACK,
+            outlineWidth: 3,
+            style: Cesium.LabelStyle.FILL_AND_OUTLINE,
+            heightReference: Cesium.HeightReference.CLAMP_TO_GROUND,
+            verticalOrigin: Cesium.VerticalOrigin.BOTTOM,
+            distanceDisplayCondition: new Cesium.DistanceDisplayCondition(0, 35000),
+          },
+        });
+        tracking.floodZones.push(badgeEnt);
+      }
+    }
+  }, [isReady, layers.floodRiskZones, floodSettings.floodRiskZones]);
 
   // TIN Terrain Model
   useEffect(() => {

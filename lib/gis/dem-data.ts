@@ -304,19 +304,141 @@ export function getSlopeAndAspect(lat: number, lng: number): {
 }
 
 /**
- * Generates contour lines for Bengaluru within requested bounds and interval
- * Includes crisp black contour line boundaries matching Reference Image 1
+ * Chaikin's corner-cutting algorithm for smoothing discrete polyline segments into
+ * natural, organic, continuous topographic contours without square grid artifacts.
+ */
+export function smoothPolyline(
+  points: [number, number][],
+  iterations = 2
+): [number, number][] {
+  if (points.length < 3) return points;
+  let curr = points;
+  const isClosed =
+    Math.abs(points[0][0] - points[points.length - 1][0]) < 1e-5 &&
+    Math.abs(points[0][1] - points[points.length - 1][1]) < 1e-5;
+
+  for (let it = 0; it < iterations; it++) {
+    const smoothed: [number, number][] = [];
+    if (!isClosed) smoothed.push(curr[0]);
+
+    for (let i = 0; i < curr.length - 1; i++) {
+      const p0 = curr[i];
+      const p1 = curr[i + 1];
+      smoothed.push([
+        0.75 * p0[0] + 0.25 * p1[0],
+        0.75 * p0[1] + 0.25 * p1[1],
+      ]);
+      smoothed.push([
+        0.25 * p0[0] + 0.75 * p1[0],
+        0.25 * p0[1] + 0.75 * p1[1],
+      ]);
+    }
+
+    if (!isClosed) {
+      smoothed.push(curr[curr.length - 1]);
+    } else {
+      smoothed.push(smoothed[0]);
+    }
+    curr = smoothed;
+  }
+  return curr;
+}
+
+/**
+ * Chains fragmented 2-point contour segments into continuous, unified polylines.
+ */
+export function chainSegments(
+  segments: Array<[[number, number], [number, number]]>
+): Array<[number, number][]> {
+  const chains: Array<[number, number][]> = [];
+  const key = (p: [number, number]) =>
+    Math.round(p[0] * 20000) + '_' + Math.round(p[1] * 20000);
+
+  const remaining = new Set<number>(segments.map((_, i) => i));
+  const ptMap = new Map<string, number[]>();
+
+  segments.forEach((seg, i) => {
+    const k1 = key(seg[0]);
+    const k2 = key(seg[1]);
+    if (!ptMap.has(k1)) ptMap.set(k1, []);
+    ptMap.get(k1)!.push(i);
+    if (!ptMap.has(k2)) ptMap.set(k2, []);
+    ptMap.get(k2)!.push(i);
+  });
+
+  for (let i = 0; i < segments.length; i++) {
+    if (!remaining.has(i)) continue;
+    remaining.delete(i);
+    const poly: [number, number][] = [segments[i][0], segments[i][1]];
+
+    // Expand forward
+    let expanded = true;
+    while (expanded) {
+      expanded = false;
+      const last = poly[poly.length - 1];
+      const k = key(last);
+      const candidates = ptMap.get(k) || [];
+      for (const nextIdx of candidates) {
+        if (remaining.has(nextIdx)) {
+          remaining.delete(nextIdx);
+          const nextSeg = segments[nextIdx];
+          if (key(nextSeg[0]) === k) {
+            poly.push(nextSeg[1]);
+          } else {
+            poly.push(nextSeg[0]);
+          }
+          expanded = true;
+          break;
+        }
+      }
+    }
+
+    // Expand backward
+    expanded = true;
+    while (expanded) {
+      expanded = false;
+      const first = poly[0];
+      const k = key(first);
+      const candidates = ptMap.get(k) || [];
+      for (const prevIdx of candidates) {
+        if (remaining.has(prevIdx)) {
+          remaining.delete(prevIdx);
+          const prevSeg = segments[prevIdx];
+          if (key(prevSeg[1]) === k) {
+            poly.unshift(prevSeg[0]);
+          } else {
+            poly.unshift(prevSeg[1]);
+          }
+          expanded = true;
+          break;
+        }
+      }
+    }
+
+    if (poly.length >= 2) {
+      chains.push(poly);
+    }
+  }
+
+  return chains;
+}
+
+/**
+ * Generates continuous, smooth, natural topographic contour lines for Bengaluru.
+ * Curves are stitched and smoothed with Chaikin's algorithm to eliminate square grid artifacts.
+ * Supports crystal-clear 5m resolution with major lines every 25m.
  */
 export function generateContoursGeoJSON(
   bounds = BENGALURU_BOUNDS,
-  interval: ContourInterval = 10
+  interval: ContourInterval = 5
 ) {
   const features: any[] = [];
   const minElev = 840;
   const maxElev = 990;
 
-  const latStep = 0.007; // ~770m grid steps
-  const lngStep = 0.007;
+  // High-resolution sampling grid (~330m spacing)
+  const latStep = 0.003;
+  const lngStep = 0.003;
 
   const latCount = Math.floor((bounds.maxLat - bounds.minLat) / latStep);
   const lngCount = Math.floor((bounds.maxLng - bounds.minLng) / lngStep);
@@ -332,8 +454,8 @@ export function generateContoursGeoJSON(
   }
 
   for (let h = minElev; h <= maxElev; h += interval) {
-    const isMajor = h % (interval * 5) === 0;
-    const lines: Array<[number, number][]> = [];
+    const isMajor = h % 25 === 0 || h % (interval * 5) === 0;
+    const rawSegments: Array<[[number, number], [number, number]]> = [];
 
     for (let i = 0; i < latCount; i++) {
       const lat1 = bounds.minLat + i * latStep;
@@ -350,24 +472,28 @@ export function generateContoursGeoJSON(
 
         const pts: [number, number][] = [];
 
+        // Bottom edge (lat1)
         if ((z00 <= h && z01 >= h) || (z00 >= h && z01 <= h)) {
           if (Math.abs(z01 - z00) > 0.001) {
             const t = (h - z00) / (z01 - z00);
             pts.push([lng1 + t * (lng2 - lng1), lat1]);
           }
         }
+        // Top edge (lat2)
         if ((z10 <= h && z11 >= h) || (z10 >= h && z11 <= h)) {
           if (Math.abs(z11 - z10) > 0.001) {
             const t = (h - z10) / (z11 - z10);
             pts.push([lng1 + t * (lng2 - lng1), lat2]);
           }
         }
+        // Left edge (lng1)
         if ((z00 <= h && z10 >= h) || (z00 >= h && z10 <= h)) {
           if (Math.abs(z10 - z00) > 0.001) {
             const t = (h - z00) / (z10 - z00);
             pts.push([lng1, lat1 + t * (lat2 - lat1)]);
           }
         }
+        // Right edge (lng2)
         if ((z01 <= h && z11 >= h) || (z01 >= h && z11 <= h)) {
           if (Math.abs(z11 - z01) > 0.001) {
             const t = (h - z01) / (z11 - z01);
@@ -376,24 +502,37 @@ export function generateContoursGeoJSON(
         }
 
         if (pts.length >= 2) {
-          lines.push([pts[0], pts[1]]);
+          rawSegments.push([pts[0], pts[1]]);
         }
       }
     }
 
-    for (const line of lines) {
+    // Stitch segments into continuous lines
+    const chains = chainSegments(rawSegments);
+
+    for (const chain of chains) {
+      if (chain.length < 2) continue;
+
+      // Apply Chaikin corner-cutting for silky-smooth organic curves
+      const smoothed = smoothPolyline(chain, 2);
+      const midIdx = Math.floor(smoothed.length / 2);
+      const midPt = smoothed[midIdx];
+
       features.push({
         type: 'Feature',
         properties: {
           elevation: h,
           isMajor,
           interval,
-          label: `${h}m`,
-          strokeColor: '#000000', // Crisp black contour boundary line (Ref Image 1)
+          label: `${h} m`,
+          strokeColor: isMajor ? '#0f172a' : '#059669', // Major = solid charcoal, Minor = crisp emerald
+          strokeWidth: isMajor ? 2.5 : 1.2,
+          midpoint: midPt,
+          pointCount: smoothed.length,
         },
         geometry: {
           type: 'LineString',
-          coordinates: line,
+          coordinates: smoothed,
         },
       });
     }

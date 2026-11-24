@@ -165,8 +165,8 @@ export function GISLayerPanel({
               {/* Filled Elevation Contours (Ref Image 1) */}
               <div className="flex items-center justify-between bg-slate-950/40 p-1.5 rounded-lg border border-slate-800/40">
                 <div>
-                  <div className="font-medium text-[11px]">Filled Contours (Hypsometric)</div>
-                  <div className="text-[9px] text-slate-400">Color tint bands from DEM (Ref 1)</div>
+                  <div className="font-medium text-[11px]">Filled Hypsometric Relief</div>
+                  <div className="text-[9px] text-slate-400">Smooth continuous terrain gradient (Zero squares)</div>
                 </div>
                 <button
                   onClick={() => {
@@ -182,12 +182,12 @@ export function GISLayerPanel({
                 </button>
               </div>
 
-              {/* Black Contour Lines (Ref Image 1) */}
+              {/* Natural Topographic Contour Lines */}
               <div className="space-y-1.5 bg-slate-950/50 p-2 rounded-lg border border-slate-800/50">
                 <div className="flex items-center justify-between">
                   <div>
-                    <span className="font-medium text-[11px]">Contour Boundary Lines</span>
-                    <div className="text-[9px] text-slate-400">Black isolines overlaid (Ref 1)</div>
+                    <span className="font-medium text-[11px]">Topographic Contour Isolines</span>
+                    <div className="text-[9px] text-emerald-400">Smooth organic curves (5m resolution)</div>
                   </div>
                   <button
                     onClick={() => {
@@ -207,13 +207,13 @@ export function GISLayerPanel({
                   <div className="flex items-center justify-between gap-1 pt-1">
                     <span className="text-[10px] text-slate-400">Interval:</span>
                     <div className="flex gap-1">
-                      {[1, 2, 5, 10, 20, 50].map((intv) => (
+                      {[2, 5, 10, 20, 50].map((intv) => (
                         <button
                           key={intv}
                           onClick={() => onUpdateContours({ interval: intv as any })}
                           className={`px-1.5 py-0.5 rounded text-[9px] font-mono transition ${
                             contourSettings.interval === intv
-                              ? 'bg-sky-500 text-slate-950 font-bold'
+                              ? 'bg-sky-500 text-slate-950 font-bold shadow-md shadow-sky-500/20'
                               : 'bg-slate-800 text-slate-400 hover:text-white'
                           }`}
                         >
@@ -419,6 +419,22 @@ export function GISLayerPanel({
 
           {!collapsedCategories.FLOOD && (
             <div className="p-2.5 pt-0 space-y-2 border-t border-slate-800/40 text-slate-300">
+              {/* 3D Flood Basin Inundation Layer */}
+              <div className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-800/30">
+                <div>
+                  <div className="font-medium text-[11px]">3D Flood Basin Inundation Zones</div>
+                  <div className="text-[9px] text-cyan-400">Bellandur, Manyata, Silk Board Basins</div>
+                </div>
+                <button
+                  onClick={() => onUpdateLayer('floodRiskZones', !layers.floodRiskZones)}
+                  className={`p-1 rounded transition ${
+                    layers.floodRiskZones ? 'text-cyan-400 bg-cyan-950/60' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {layers.floodRiskZones ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+                </button>
+              </div>
+
               <div className="flex items-center justify-between p-1.5 rounded-lg hover:bg-slate-800/30">
                 <div>
                   <div className="font-medium text-[11px]">Flooded Inundation Extent</div>
