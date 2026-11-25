@@ -11,6 +11,7 @@ export const HazardTypeEnum = z.enum([
   'OVERFLOWING_DRAIN',
   'WATERLOGGING',
   'FLOODED_ROAD',
+  'FLOOD_CONTOUR_MAP',
   'ROAD_CRACK',
   'ROAD_DAMAGE',
   'ROAD_DEPRESSION',

@@ -13,6 +13,7 @@ import {
   FileQuestion,
   ShieldCheck,
   Zap,
+  Mountain,
 } from 'lucide-react';
 import { HazardType, RiskLevel, HazardStatus } from '@/lib/types/hazard';
 
@@ -82,6 +83,8 @@ export function getHazardIcon(type: HazardType, className = 'w-4 h-4') {
       return <Droplets className={className} />;
     case 'FLOODED_ROAD':
       return <Waves className={className} />;
+    case 'FLOOD_CONTOUR_MAP':
+      return <Mountain className={className} />;
     case 'ACCIDENT_REPORTED':
       return <AlertTriangle className={className} />;
     case 'ROAD_BLOCKED':
