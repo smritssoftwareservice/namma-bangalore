@@ -114,7 +114,7 @@ export default function ThreeDGISPlatformPage() {
   const [selectedBuilding, setSelectedBuilding] = useState<Detailed3DBuilding | null>(null);
   const [selectedInfra, setSelectedInfra] = useState<ElevatedInfrastructure3D | null>(null);
 
-  // Master Layers State
+  // Master Layers State — all overlays OFF by default for a clean 3D map
   const [layers, setLayers] = useState<MasterGISLayers>({
     // Terrain
     terrain3D: true,
@@ -127,7 +127,7 @@ export default function ThreeDGISPlatformPage() {
     hillshade: true,
 
     // Weather
-    rainfall: true,
+    rainfall: false,
     temperature: false,
     humidity: false,
     windSpeed: false,
@@ -136,32 +136,32 @@ export default function ThreeDGISPlatformPage() {
     weatherRadar: false,
 
     // Flood
-    floodRiskZones: true,
+    floodRiskZones: false,
     floodExtent: false,
-    waterlogging: true,
-    floodedStructures: true,
-    floodAffectedRoads: true,
-    floodDepth: true,
+    waterlogging: false,
+    floodedStructures: false,
+    floodAffectedRoads: false,
+    floodDepth: false,
     historicalFloods: false,
-    floodSimulation: true,
+    floodSimulation: false,
 
     // Hydrology
-    lakes: true,
-    rivers: true,
-    stormwaterDrains: true,
-    rajakaluves: true,
-    watersheds: true,
+    lakes: false,
+    rivers: false,
+    stormwaterDrains: false,
+    rajakaluves: false,
+    watersheds: false,
     catchmentDelineation: false,
-    flowDirection: true,
+    flowDirection: false,
     flowAccumulation: false,
 
     // Infrastructure
-    roads: true,
-    bridges: true,
-    buildings: true,
-    hospitals: true,
+    roads: false,
+    bridges: false,
+    buildings: false,
+    hospitals: false,
     schools: false,
-    emergencyServices: true,
+    emergencyServices: false,
   });
 
   // Terrain Settings
@@ -224,28 +224,28 @@ export default function ThreeDGISPlatformPage() {
     radarOpacity: 0.75,
   });
 
-  // Flood Settings
+  // Flood Settings — all off by default for clean map
   const [floodSettings, setFloodSettings] = useState<FloodMonitoringSettings>({
-    floodRiskZones: true,
+    floodRiskZones: false,
     floodExtent: false,
-    waterloggingMarkers: true,
-    floodDepthLayer: true,
+    waterloggingMarkers: false,
+    floodDepthLayer: false,
     historicalFloods: false,
-    lowLyingAreas: true,
-    affectedRoads: true,
+    lowLyingAreas: false,
+    affectedRoads: false,
     riskHeatmap: false,
   });
 
-  // Hydrology Settings
+  // Hydrology Settings — all off by default for clean map
   const [hydrologySettings, setHydrologySettings] = useState<HydrologySettings>({
-    lakes: true,
-    rivers: true,
-    stormwaterDrains: true,
-    rajakaluves: true,
-    watershedBoundaries: true,
-    flowDirectionArrows: true,
+    lakes: false,
+    rivers: false,
+    stormwaterDrains: false,
+    rajakaluves: false,
+    watershedBoundaries: false,
+    flowDirectionArrows: false,
     flowAccumulation: false,
-    bottlenecks: true,
+    bottlenecks: false,
   });
 
   // Modals & Panels State
@@ -311,11 +311,7 @@ export default function ThreeDGISPlatformPage() {
     loadWeather();
   }, []);
 
-  // Compute Initial Simulation for Default Hotspot
-  useEffect(() => {
-    const initSim = runFloodSimulation(simulationParams);
-    setSimResult(initSim);
-  }, []);
+  // No initial simulation — map starts clean without flood overlays
 
   // Animated Simulation Loop
   useEffect(() => {
