@@ -248,6 +248,11 @@ export default function CesiumViewer({
           },
         });
 
+        // Hide Cesium Ion token warning banner & credit display
+        if (viewer.cesiumWidget?.creditContainer) {
+          (viewer.cesiumWidget.creditContainer as HTMLElement).style.display = 'none';
+        }
+
         // 8K / High-Resolution Rendering Pipeline
         viewer.resolutionScale = qualityProfile.resolutionScale;
         viewer.scene.globe.depthTestAgainstTerrain = true;
