@@ -456,11 +456,8 @@ export default function CesiumViewer({
     tracking.photorealisticBuildings = [];
     tracking.buildingRoofs = [];
 
-    const showBuildings =
-      layers.buildings ||
-      cityDisplayMode === 'photorealistic-3d' ||
-      cityDisplayMode === 'night-3d' ||
-      cityDisplayMode === 'hybrid';
+    // Only show buildings when explicitly toggled on via layer flag
+    const showBuildings = layers.buildings;
 
     if (showBuildings) {
       const isNight = lightingSettings?.isNight || cityDisplayMode === 'night-3d';
@@ -548,11 +545,8 @@ export default function CesiumViewer({
     tracking.elevatedFlyovers = [];
     tracking.structuralPiers = [];
 
-    const showInfra =
-      layers.roads ||
-      cityDisplayMode === 'photorealistic-3d' ||
-      cityDisplayMode === 'night-3d' ||
-      cityDisplayMode === 'hybrid';
+    // Only show elevated infrastructure when explicitly toggled on via layer flag
+    const showInfra = layers.roads;
 
     if (showInfra) {
       for (const infra of BENGALURU_ELEVATED_INFRASTRUCTURE) {
