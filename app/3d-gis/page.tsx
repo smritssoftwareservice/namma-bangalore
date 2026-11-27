@@ -37,7 +37,7 @@ import { GISLayerPanel } from '@/components/gis/gis-layer-panel';
 import { GISInspectorPanel } from '@/components/gis/gis-inspector-panel';
 import { GISSimulationPanel } from '@/components/gis/gis-simulation-panel';
 import { GISWeatherPanel } from '@/components/gis/gis-weather-panel';
-import { GISBottomPanel } from '@/components/gis/gis-bottom-panel';
+
 import { GISElevationProfileModal } from '@/components/gis/gis-elevation-profile-modal';
 import { GISScenarioComparison } from '@/components/gis/gis-scenario-comparison';
 import { GISMapExportModal } from '@/components/gis/gis-map-export-modal';
@@ -949,12 +949,7 @@ export default function ThreeDGISPlatformPage() {
         )}
       </div>
 
-      {/* Bottom Professional GIS Status & Timeline Panel */}
-      <GISBottomPanel
-        currentCoords={cursorCoords}
-        timeSlice={weatherSettings.timeSlice}
-        onTimeSliceChange={(ts) => setWeatherSettings((prev) => ({ ...prev, timeSlice: ts }))}
-      />
+
     </div>
   );
 }
